@@ -40,10 +40,6 @@
  ****************************************************************************/
 static USBD_HANDLE_T g_hUsb;
 
-/* Endpoint 0 patch that prevents nested NAK event processing */
-//static uint32_t g_ep0RxBusy = 0;/* flag indicating whether EP0 OUT/RX buffer is busy. */
-//static USB_EP_HANDLER_T g_Ep0BaseHdlr;	/* variable to store the pointer to base EP0 handler */
-
 /*****************************************************************************
  * Public types/enumerations/variables
  ****************************************************************************/
@@ -64,35 +60,18 @@ static const  USBD_API_T g_usbApi = {
 };
 
 const  USBD_API_T *g_pUsbApi = &g_usbApi;
-//const USBD_API_T *g_pUsbApi;
 
 /*****************************************************************************
  * Private functions
  ****************************************************************************/
-
-/* EP0_patch part of WORKAROUND for artf45032. */
-//ErrorCode_t EP0_patch(USBD_HANDLE_T hUsb, void *data, uint32_t event)
-//{
-//	switch (event) {
-//	case USB_EVT_OUT_NAK:
-//		if (g_ep0RxBusy) {
-//			/* we already queued the buffer so ignore this NAK event. */
-//			return LPC_OK;
-//		}
-//		else {
-//			/* Mark EP0_RX buffer as busy and allow base handler to queue the buffer. */
-//			g_ep0RxBusy = 1;
-//		}
-//		break;
-//
-//	case USB_EVT_SETUP:	/* reset the flag when new setup sequence starts */
-//	case USB_EVT_OUT:
-//		/* we received the packet so clear the flag. */
-//		g_ep0RxBusy = 0;
-//		break;
-//	}
-//	return g_Ep0BaseHdlr(hUsb, data, event);
-//}
+/* Initialize pin and clocks for USB port */
+static void usb_pin_clk_init(void)
+{
+	/* enable USB PLL and clocks */
+	Chip_USB_Init();
+	/* enable USB 1 port on the board */
+	Board_USBD_Init(1);
+}
 
 /*****************************************************************************
  * Public functions
@@ -147,18 +126,13 @@ int main(void)
 	USBD_API_INIT_PARAM_T usb_param;
 	USB_CORE_DESCS_T desc;
 	ErrorCode_t ret = LPC_OK;
-	//USB_CORE_CTRL_T *pCtrl;
 
 	/* Initialize board and chip */
 	SystemCoreClockUpdate();
 	Board_Init();
 
 	/* enable clocks and pinmux */
-	USB_init_pin_clk();
-	Board_USBD_Init(1);
-
-	/* Init USB API structure */
-	//g_pUsbApi = (const USBD_API_T *) LPC_ROM_API->usbdApiBase;
+	usb_pin_clk_init();
 
 	/* initialize call back structures */
 	memset((void *) &usb_param, 0, sizeof(USBD_API_INIT_PARAM_T));
@@ -171,33 +145,16 @@ int main(void)
 	desc.device_desc = (uint8_t *) USB_DeviceDescriptor;
 	desc.string_desc = (uint8_t *) USB_StringDescriptor;
 
-#ifdef USE_USB1
-	desc.high_speed_desc = USB_HsConfigDescriptor;
-	desc.full_speed_desc = USB_FsConfigDescriptor;
-	desc.device_qualifier = (uint8_t *) USB_DeviceQualifier;
-#else
 	/* Note, to pass USBCV test full-speed only devices should have both
 	   descriptor arrays point to same location and device_qualifier set to 0.
 	 */
 	desc.high_speed_desc = USB_FsConfigDescriptor;
 	desc.full_speed_desc = USB_FsConfigDescriptor;
 	desc.device_qualifier = 0;
-#endif
 
 	/* USB Initialization */
 	ret = USBD_API->hw->Init(&g_hUsb, &desc, &usb_param);
 	if (ret == LPC_OK) {
-
-		/*	WORKAROUND for artf45032 ROM driver BUG:
-		    Due to a race condition there is the chance that a second NAK event will
-		    occur before the default endpoint0 handler has completed its preparation
-		    of the DMA engine for the first NAK event. This can cause certain fields
-		    in the DMA descriptors to be in an invalid state when the USB controller
-		    reads them, thereby causing a hang.
-		 */
-		//pCtrl = (USB_CORE_CTRL_T *) g_hUsb;	/* convert the handle to control structure */
-		//g_Ep0BaseHdlr = pCtrl->ep_event_hdlr[0];/* retrieve the default EP0_OUT handler */
-		//pCtrl->ep_event_hdlr[0] = EP0_patch;/* set our patch routine as EP0_OUT handler */
 
 		ret = mscDisk_init(g_hUsb, &desc, &usb_param);
 		if (ret == LPC_OK) {
