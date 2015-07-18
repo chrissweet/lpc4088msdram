@@ -1,7 +1,7 @@
-libUSB device (www.libusb.org) examples for USB ROM API.
+libUSB device (www.libusb.org) examples for USB Lib API.
 
 Example description
-The example shows how to use USBD ROM stack to creates a USB MSC example
+The example shows how to use USBD Lib stack to creates a USB MSC example
 that uses RAM. The device appears as unformatted disk with size as 32KB.
  
 Special connection requirements
@@ -11,3 +11,5 @@ The example exposes part of internal SRAM as storage space.
 Build procedures:
 Visit the <a href="http://www.lpcware.com/content/project/lpcopen-platform-nxp-lpc-microcontrollers/lpcopen-v200-quickstart-guides">LPCOpen quickstart guides</a>
 to get started building LPCOpen projects.
+
+Modified for LPC8048/EA board from LPC43xx example
